@@ -41,38 +41,8 @@ var explain, highlight, fields bool
 var qtype, qfield, sortby string
 var idx bleve.Index
 
-// func executeSearch(cmd *cobra.Command, args []string) {
-// 	//var limit, skip, repeat int
-// 	//var explain, highlight, fields bool
-// 	//log := slog.Default()
-// 	limit := 10
-// 	skip := 0
-// 	explain := false
-
-// 	// remoteName := cmd.Flag("remote").Value.String()
-// 	// remote, err := remotes.Get(remoteName)
-// 	// _ = remote
-// 	// if err != nil {
-// 	// 	log.Error(fmt.Sprintf("could not initialize a remote instance for %s. check config", remoteName), "error", err)
-// 	// 	os.Exit(1)
-// 	// }
-// 	index, _ := bleve.Open("../catalog2.bleve")
-// 	queryString := strings.Join(args, " ")
-// 	query := bleve.NewQueryStringQuery(queryString)
-// 	//query := bleve.NewQueryStringQuery(args[0])
-// 	//searchRequest := bleve.NewSearchRequest(query)
-// 	searchRequest := bleve.NewSearchRequestOptions(query, limit, skip, explain)
-// 	searchRequest.Highlight = bleve.NewHighlightWithStyle("ansi")
-// 	searchRequest.Fields = []string{"*"}
-// 	searchResult, err := index.Search(searchRequest)
-// 	if err != nil {
-// 		fmt.Println(err)
-// 	}
-// 	fmt.Println(searchResult.String())
-// }
-
 func init() {
-	rootCmd.AddCommand(searchCmd)
+	RootCmd.AddCommand(searchCmd)
 	searchCmd.Flags().IntVarP(&repeat, "repeat", "r", 1, "Repeat the query this many times.")
 	searchCmd.Flags().IntVarP(&limit, "limit", "l", 10, "Limit number of results returned.")
 	searchCmd.Flags().IntVarP(&skip, "skip", "s", 0, "Skip the first N results.")
@@ -89,7 +59,7 @@ func executeSearch(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("must specify query")
 	}
 	var errOpen error
-	idx, errOpen = bleve.Open("../catalog2.bleve")
+	idx, errOpen = bleve.Open("../catalog.bleve")
 	if errOpen != nil {
 		return fmt.Errorf("error opening bleve index: %v", errOpen)
 	}
