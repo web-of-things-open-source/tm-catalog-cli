@@ -44,7 +44,7 @@ var idx bleve.Index
 func init() {
 	RootCmd.AddCommand(searchCmd)
 	searchCmd.Flags().IntVarP(&repeat, "repeat", "r", 1, "Repeat the query this many times.")
-	searchCmd.Flags().IntVarP(&limit, "limit", "l", 10, "Limit number of results returned.")
+	searchCmd.Flags().IntVarP(&limit, "limit", "n", 10, "Limit number of results returned.")
 	searchCmd.Flags().IntVarP(&skip, "skip", "s", 0, "Skip the first N results.")
 	searchCmd.Flags().BoolVarP(&explain, "explain", "x", false, "Explain the result scoring.")
 	searchCmd.Flags().BoolVar(&highlight, "highlight", true, "Highlight matching text in results.")
