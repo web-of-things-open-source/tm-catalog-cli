@@ -15,28 +15,36 @@ var ErrInvalidArgs = errors.New("invalid arguments")
 
 func RemoteList() error {
 	colWidth := columnWidth()
-	config, err := remotes.ReadConfig()
+	config, err := remotes.DefaultManager().ReadConfig()
 	if err != nil {
 		Stderrf("Cannot read remotes config: %v", err)
 		return err
 	}
 	table := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
 
-	_, _ = fmt.Fprintf(table, "NAME\tTYPE\tLOCATION\n")
+	_, _ = fmt.Fprintf(table, "NAME\tTYPE\tENBL\tLOCATION\n")
 	for name, value := range config {
-		typ := elideString(fmt.Sprintf("%v", value[remotes.KeyRemoteType]), colWidth)
-		u := elideString(fmt.Sprintf("%v", value[remotes.KeyRemoteLoc]), colWidth)
-		_, _ = fmt.Fprintf(table, "%s\t%s\t%s\n", elideString(name, colWidth), typ, u)
+		typ := fmt.Sprintf("%v", value[remotes.KeyRemoteType])
+		e := utils.JsGetBool(value, remotes.KeyRemoteEnabled)
+		enbl := e == nil || *e
+		var enblS string
+		if enbl {
+			enblS = "Y"
+		} else {
+			enblS = "N"
+		}
+		u := fmt.Sprintf("%v", value[remotes.KeyRemoteLoc])
+		_, _ = fmt.Fprintf(table, "%s\t%s\t%s\t%s\n", elideString(name, colWidth), typ, enblS, u)
 	}
 	_ = table.Flush()
 	return nil
 }
 
 func RemoteAdd(name, typ, confStr, confFile string) error {
-	return remoteSaveConfig(name, typ, confStr, confFile, remotes.Add)
+	return remoteSaveConfig(name, typ, confStr, confFile, remotes.DefaultManager().Add)
 }
 func RemoteSetConfig(name, typ, confStr, confFile string) error {
-	return remoteSaveConfig(name, typ, confStr, confFile, remotes.SetConfig)
+	return remoteSaveConfig(name, typ, confStr, confFile, remotes.DefaultManager().SetConfig)
 }
 
 func remoteSaveConfig(name, typ, confStr, confFile string, saver func(name, typ, confStr string, confFile []byte) error) error {
@@ -92,8 +100,9 @@ func inferType(typ string, bytes []byte) string {
 	}
 	return ""
 }
-func RemoteSetDefault(name string) error {
-	err := remotes.SetDefault(name)
+
+func RemoteToggleEnabled(name string) error {
+	err := remotes.DefaultManager().ToggleEnabled(name)
 	if err != nil {
 		Stderrf("%v", err)
 	}
@@ -101,7 +110,7 @@ func RemoteSetDefault(name string) error {
 }
 
 func RemoteRemove(name string) error {
-	err := remotes.Remove(name)
+	err := remotes.DefaultManager().Remove(name)
 	if err != nil {
 		Stderrf("%v", err)
 	}
@@ -109,7 +118,7 @@ func RemoteRemove(name string) error {
 }
 
 func RemoteShow(name string) error {
-	config, err := remotes.ReadConfig()
+	config, err := remotes.DefaultManager().ReadConfig()
 	if err != nil {
 		Stderrf("Cannot read remotes config: %v", err)
 		return err
@@ -129,7 +138,7 @@ func RemoteShow(name string) error {
 }
 
 func RemoteRename(oldName, newName string) (err error) {
-	err = remotes.Rename(oldName, newName)
+	err = remotes.DefaultManager().Rename(oldName, newName)
 	if err != nil {
 		if errors.Is(err, remotes.ErrRemoteNotFound) {
 			Stderrf("remote %s not found", oldName)
@@ -142,6 +151,38 @@ func RemoteRename(oldName, newName string) (err error) {
 		Stderrf("error renaming a remote: %v", err)
 	}
 	return
+}
+
+func RemoteSetAuth(name, kind, data string) error {
+	conf, err := remotes.DefaultManager().ReadConfig()
+	if err != nil {
+		Stderrf("error setting auth: %v", err)
+		return err
+	}
+
+	rc, ok := conf[name]
+	if !ok {
+		Stderrf("remote %s not found", name)
+		return remotes.ErrRemoteNotFound
+	}
+	switch kind {
+	case "bearer":
+		delete(rc, remotes.KeyRemoteAuth)
+		rc[remotes.KeyRemoteAuth] = map[string]any{
+			"bearer": data,
+		}
+	default:
+		Stderrf("unknown auth type: %s", kind)
+		return errors.New("unknown auth type")
+	}
+	rb, _ := json.Marshal(rc)
+
+	err = remotes.DefaultManager().SetConfig(name, fmt.Sprint(rc[remotes.KeyRemoteType]), "", rb)
+	if err != nil {
+		Stderrf("error saving remote config: %v", err)
+		return err
+	}
+	return nil
 }
 
 func isValidType(typ string) bool {

@@ -25,6 +25,26 @@ type TMID struct {
 	Version      TMVersion
 }
 
+func NewTMID(author, manufacturer, mpn, optPath string, version TMVersion) TMID {
+	id := TMID{
+		OptionalPath: optPath,
+		Author:       author,
+		Manufacturer: manufacturer,
+		Mpn:          mpn,
+		Version:      version,
+	}
+	parts := []string{id.Author}
+	if id.Manufacturer != id.Author {
+		parts = append(parts, id.Manufacturer)
+	}
+	parts = append(parts, id.Mpn, id.OptionalPath)
+	name := JoinSkippingEmpty(parts, "/")
+	id.Name = name
+
+	return id
+
+}
+
 type TMVersion struct {
 	Base      *semver.Version
 	Timestamp string
@@ -87,13 +107,24 @@ func init() {
 	pseudoVersionRegex = regexp.MustCompile("^" + pseudoVersionRegexString + "$")
 }
 
+func MustParseTMID(s string, official bool) TMID {
+	tmid, err := ParseTMID(s, official)
+	if err != nil {
+		panic(err)
+	}
+	return tmid
+}
 func ParseTMID(s string, official bool) (TMID, error) {
 	if !strings.HasSuffix(s, TMFileExtension) {
 		return TMID{}, ErrInvalidId
 	}
 	s = strings.TrimSuffix(s, TMFileExtension)
 	parts := strings.Split(s, "/")
-	if len(parts) < 3 {
+	minLength := 4
+	if official {
+		minLength = 3
+	}
+	if len(parts) < minLength {
 		return TMID{}, ErrInvalidId
 	}
 	filename := parts[len(parts)-1]

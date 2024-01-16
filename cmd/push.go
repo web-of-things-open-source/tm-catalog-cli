@@ -3,14 +3,16 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/web-of-things-open-source/tm-catalog-cli/internal/app/cli"
+	"github.com/web-of-things-open-source/tm-catalog-cli/internal/remotes"
 )
 
 // pushCmd represents the push command
 var pushCmd = &cobra.Command{
-	Use:   "push file-or-dirname [--remote=remote-name] [--opt-path=optional/path] [--opt-tree]",
+	Use:   "push <file-or-dirname> [--remote=<remote-name>] [--opt-path=<optional/path>] [--opt-tree]",
 	Short: "Push a TM or directory with TMs to remote",
 	Long: `Push a single ThingModel or an directory with ThingModels to remote catalog.
 file-or-dirname
@@ -18,7 +20,7 @@ file-or-dirname
 	import all found ThingModels.
 
 --remote, -r
-	Name of the target remote repository
+	Name of the target remote repository. Can be omitted if there's only one configured
 
 --opt-path, -p
 	Appends optional path parts to the target path (and id) of imported files, after the mandatory path structure.
@@ -34,7 +36,7 @@ file-or-dirname
 
 func init() {
 	RootCmd.AddCommand(pushCmd)
-	pushCmd.Flags().StringP("remote", "r", "", "use named remote instead of default")
+	pushCmd.Flags().StringP("remote", "r", "", "the target remote. can be omitted if there's only one")
 	pushCmd.Flags().StringP("opt-path", "p", "", "append optional path to mandatory target directory structure")
 	pushCmd.Flags().BoolP("opt-tree", "t", false, "use original directory tree as optional path for each file. Has no effect with a single file. Overrides -p")
 }
@@ -43,7 +45,7 @@ func executePush(cmd *cobra.Command, args []string) {
 	remoteName := cmd.Flag("remote").Value.String()
 	optPath := cmd.Flag("opt-path").Value.String()
 	optTree, _ := cmd.Flags().GetBool("opt-tree")
-	results, err := cli.Push(args[0], remoteName, optPath, optTree)
+	results, err := cli.NewPushExecutor(remotes.DefaultManager(), time.Now).Push(args[0], remoteName, optPath, optTree)
 	for _, res := range results {
 		fmt.Println(res)
 	}

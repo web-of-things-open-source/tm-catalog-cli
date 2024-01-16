@@ -25,13 +25,14 @@ var createSiCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		var log = slog.Default()
 		remoteName := cmd.Flag("remote").Value.String()
-		remote, err := remotes.Get(remoteName)
+		rm := remotes.DefaultManager()
+		remote, err := rm.Get(remoteName)
 		if err != nil {
 			// TODO: error seems specific to remotes.Get()
 			log.Error(fmt.Sprintf("could not initialize a remote instance for %s. check config", remoteName), "error", err)
 			os.Exit(1)
 		}
-		toc, err := remote.List("")
+		toc, err := remote.List(nil)
 		if err != nil {
 			log.Error(err.Error())
 			os.Exit(1)
@@ -43,30 +44,31 @@ var createSiCmd = &cobra.Command{
 			fmt.Println(err)
 			return
 		}
-		contents := toc.Data
+		contents := toc.Entries
 		for _, value := range contents {
 			fmt.Printf("%s\t%s\n", value.Name, value.Mpn)
-			fn := &commands.FetchName{}
 			fmt.Println(string(value.Name))
-			err := fn.Parse(value.Name)
-			if err != nil {
-				log.Error(err.Error())
-				return //"", err
-			}
+			// fn, err := commands.ParseFetchName(value.Name)
+			// if err != nil {
+			// 	log.Error(err.Error())
+			// 	return //"", err
+			// }
 
 			for _, version := range value.Versions {
-				fn := &commands.FetchName{}
+				//fn := &commands.FetchName{}
 				fqName := value.Name + ":" + version.Version.Model
-				err := fn.Parse(fqName)
+				fn, err := commands.ParseFetchName(fqName)
 				if err != nil {
 					log.Error(err.Error())
 					return //"", err
 				}
-				thing, err := commands.FetchThingByName(fn, remote)
+				id, thing, err := commands.NewFetchCommand(rm).FetchByName(remoteName, fn)
+				//thing, err := commands.(fn, remote)
 				if err != nil {
 					fmt.Println(err.Error())
 					os.Exit(1)
 				}
+				fmt.Println(id)
 				fmt.Println(string(thing))
 				var data any
 				json.Unmarshal(thing, &data)
