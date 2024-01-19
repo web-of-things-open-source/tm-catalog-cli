@@ -6,14 +6,19 @@ require (
 	github.com/Masterminds/semver/v3 v3.2.1
 	github.com/blevesearch/bleve/v2 v2.3.10
 	github.com/buger/jsonparser v1.1.1
+	github.com/gofrs/flock v0.8.1
+	github.com/google/renameio v1.0.1
 	github.com/gorilla/mux v1.8.1
 	github.com/kennygrant/sanitize v1.2.4
 	github.com/kinbiko/jsonassert v1.1.1
 	github.com/oapi-codegen/runtime v1.1.0
+	github.com/oapi-codegen/testutil v1.1.0
+	github.com/otiai10/copy v1.14.0
 	github.com/santhosh-tekuri/jsonschema/v5 v5.3.0
 	github.com/spf13/cobra v1.7.0
 	github.com/spf13/viper v1.17.0
 	github.com/stretchr/testify v1.8.4
+	golang.org/x/exp v0.0.0-20230905200255-921286631fa9
 )
 
 require (
@@ -66,9 +71,9 @@ require (
 	go.etcd.io/bbolt v1.3.7 // indirect
 	go.uber.org/atomic v1.9.0 // indirect
 	go.uber.org/multierr v1.9.0 // indirect
-	golang.org/x/exp v0.0.0-20230905200255-921286631fa9 // indirect
 	golang.org/x/net v0.18.0 // indirect
-	golang.org/x/sys v0.14.0 // indirect
+	golang.org/x/sync v0.3.0 // indirect
+	golang.org/x/sys v0.16.0 // indirect
 	golang.org/x/text v0.14.0 // indirect
 	google.golang.org/protobuf v1.31.0 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
