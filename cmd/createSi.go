@@ -25,14 +25,19 @@ var createSiCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		var log = slog.Default()
 		remoteName := cmd.Flag("remote").Value.String()
+		dirName := cmd.Flag("directory").Value.String()
+		repoSpec, err := remotes.NewSpec(remoteName, dirName)
 		rm := remotes.DefaultManager()
-		remote, err := rm.Get(remoteName)
+		//		remote, err := rm.Get(remoteName)
 		if err != nil {
 			// TODO: error seems specific to remotes.Get()
 			log.Error(fmt.Sprintf("could not initialize a remote instance for %s. check config", remoteName), "error", err)
 			os.Exit(1)
 		}
-		toc, err := remote.List(nil)
+		listCmd := commands.NewListCommand(rm)
+		searchResult, err := listCmd.List(repoSpec, nil)
+		_ = searchResult
+		//toc, err := spec.List(nil)
 		if err != nil {
 			log.Error(err.Error())
 			os.Exit(1)
@@ -44,7 +49,7 @@ var createSiCmd = &cobra.Command{
 			fmt.Println(err)
 			return
 		}
-		contents := toc.Entries
+		contents := searchResult.Entries
 		for _, value := range contents {
 			fmt.Printf("%s\t%s\n", value.Name, value.Mpn)
 			fmt.Println(string(value.Name))
@@ -62,7 +67,7 @@ var createSiCmd = &cobra.Command{
 					log.Error(err.Error())
 					return //"", err
 				}
-				id, thing, err := commands.NewFetchCommand(rm).FetchByName(remoteName, fn)
+				id, thing, err := commands.NewFetchCommand(rm).FetchByName(repoSpec, fn)
 				//thing, err := commands.(fn, remote)
 				if err != nil {
 					fmt.Println(err.Error())
@@ -143,5 +148,6 @@ func ErrorCoalesce(searchIn ...error) error {
 
 func init() {
 	RootCmd.AddCommand(createSiCmd)
-	createSiCmd.Flags().StringP("remote", "r", "", "use named remote instead of default")
+	createSiCmd.Flags().StringP("remote", "r", "", "name of the remote to pull from")
+	createSiCmd.Flags().StringP("directory", "d", "", "TM repository directory to pull from")
 }
