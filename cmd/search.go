@@ -22,9 +22,6 @@ import (
 	"github.com/blevesearch/bleve/v2"
 	_ "github.com/blevesearch/bleve/v2/config"
 	"github.com/blevesearch/bleve/v2/search/query"
-
-	// _ "github.com/blevesearch/bleve/v2/search/highlight"
-	// _ "github.com/blevesearch/bleve/v2/search/highlight/highlighter/ansi"
 	"github.com/spf13/cobra"
 )
 
@@ -49,7 +46,7 @@ func init() {
 	searchCmd.Flags().BoolVarP(&explain, "explain", "x", false, "Explain the result scoring.")
 	searchCmd.Flags().BoolVar(&highlight, "highlight", true, "Highlight matching text in results.")
 	searchCmd.Flags().BoolVar(&fields, "fields", false, "Load stored fields.")
-	searchCmd.Flags().StringVarP(&qtype, "type", "t", "query_string", "Type of query to run.")
+	searchCmd.Flags().StringVarP(&qtype, "type", "t", "query_string", "Type of query to run. I is on of prefix, term,wild,phrase or generic")
 	searchCmd.Flags().StringVarP(&qfield, "field", "f", "", "Restrict query to field, not applicable to query_string queries.")
 	searchCmd.Flags().StringVarP(&sortby, "sort-by", "b", "", "Sort by field.")
 }
@@ -64,7 +61,7 @@ func executeSearch(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("error opening bleve index: %v", errOpen)
 	}
 	defer idx.Close()
-	query := buildQuery(args)
+	query := buildQuery(qtype, args)
 	for i := 0; i < repeat; i++ {
 		req := bleve.NewSearchRequestOptions(query, limit, skip, explain)
 		if highlight {
@@ -90,7 +87,7 @@ func executeSearch(cmd *cobra.Command, args []string) error {
 
 }
 
-func buildQuery(args []string) query.Query {
+func buildQuery(qtype string, args []string) query.Query {
 	var q query.Query
 	switch qtype {
 	case "prefix":
@@ -110,6 +107,9 @@ func buildQuery(args []string) query.Query {
 		if qfield != "" {
 			pquery.SetField(qfield)
 		}
+		q = pquery
+	case "phrase":
+		pquery := bleve.NewPhraseQuery(args, "properties.factory-seqno-lword.title")
 		q = pquery
 	default:
 		// build a search with the provided parameters

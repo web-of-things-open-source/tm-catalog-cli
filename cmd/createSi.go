@@ -42,12 +42,16 @@ var createSiCmd = &cobra.Command{
 			log.Error(err.Error())
 			os.Exit(1)
 		}
-		// open a new index
-		mapping := bleve.NewIndexMapping()
-		index, err := bleve.New("../catalog.bleve", mapping)
+
+		index, err := bleve.Open("../catalog.bleve")
 		if err != nil {
-			fmt.Println(err)
-			return
+			// open a new index
+			mapping := bleve.NewIndexMapping()
+			index, err = bleve.New("../catalog.bleve", mapping)
+			if err != nil {
+				fmt.Println(err)
+				return
+			}
 		}
 		contents := searchResult.Entries
 		for _, value := range contents {
@@ -73,13 +77,19 @@ var createSiCmd = &cobra.Command{
 					fmt.Println(err.Error())
 					os.Exit(1)
 				}
-				fmt.Println(id)
-				fmt.Println(string(thing))
+				deleteErr := index.Delete(id)
+				if deleteErr != nil {
+					fmt.Printf("\ndeleted exisiting document with id=%s first\n", id)
+				} else {
+					fmt.Printf("\nnew document with id=%s\n", id)
+				}
+				//fmt.Println(string(thing))
 				var data any
 				json.Unmarshal(thing, &data)
 
 				vf := func(data interface{}, path string) (interface{}, error) {
 					fmt.Printf("%s: %v(%T)\n", path, data, data)
+					//analyzer := index.Index()
 					return data, nil
 				}
 
@@ -100,6 +110,7 @@ func RangeJSON(data interface{}, path string, vf visitField) (interface{}, error
 	}
 	var err error
 	//hideField := strings.HasSuffix(path, ".properties")
+	// if data is a map, walk deeper in the fields of the map
 	if aMap, isMap := data.(map[string]interface{}); isMap {
 
 		for key, val := range aMap {
@@ -119,7 +130,7 @@ func RangeJSON(data interface{}, path string, vf visitField) (interface{}, error
 		}
 		return aMap, err
 	}
-
+	// if data is a array, walk deeper in the each element of the array
 	if aArr, isArr := data.([]interface{}); isArr {
 
 		j := 0
@@ -133,6 +144,7 @@ func RangeJSON(data interface{}, path string, vf visitField) (interface{}, error
 		}
 		return aArr[:j], err
 	}
+	// its a literal, so call the visitField function
 	vf(data, path)
 	return data, nil
 }
