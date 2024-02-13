@@ -20,6 +20,30 @@ func TestTOC_Filter(t *testing.T) {
 		assert.NotNil(t, toc.findByName("aut/man/mpn"))
 		assert.Nil(t, toc.findByName("man/mpn"))
 	})
+	t.Run("filter by name with prefix match", func(t *testing.T) {
+		toc := prepareToc()
+		toc.Filter(&SearchParams{Name: "man", Options: SearchOptions{NameFilterType: PrefixMatch}})
+		assert.Len(t, toc.Data, 1)
+		assert.NotNil(t, toc.findByName("man/mpn"))
+		assert.Nil(t, toc.findByName("aut/man/mpn"))
+
+		toc = prepareToc()
+		toc.Filter(&SearchParams{Name: "aut/man/mpn", Options: SearchOptions{NameFilterType: PrefixMatch}})
+		assert.Len(t, toc.Data, 1)
+		assert.NotNil(t, toc.findByName("aut/man/mpn"))
+		assert.Nil(t, toc.findByName("aut/man/mpn2"))
+		assert.Nil(t, toc.findByName("man/mpn"))
+
+		toc = prepareToc()
+		toc.Filter(&SearchParams{Name: "aut/man", Options: SearchOptions{NameFilterType: PrefixMatch}})
+		assert.Len(t, toc.Data, 2)
+		assert.NotNil(t, toc.findByName("aut/man/mpn"))
+		assert.NotNil(t, toc.findByName("aut/man/mpn2"))
+
+		toc = prepareToc()
+		toc.Filter(&SearchParams{Name: "aut/man/mpn/sub", Options: SearchOptions{NameFilterType: PrefixMatch}})
+		assert.Len(t, toc.Data, 0)
+	})
 	t.Run("filter by mpn", func(t *testing.T) {
 		toc := prepareToc()
 		toc.Filter(&SearchParams{Mpn: []string{"mpn2"}})
@@ -112,22 +136,6 @@ func TestTOC_Filter(t *testing.T) {
 		assert.Len(t, toc.Data, 3)
 		assert.NotNil(t, toc.findByName("aut/man/mpn"))
 		assert.NotNil(t, toc.findByName("aut/man/mpn2"))
-		assert.NotNil(t, toc.findByName("man/mpn"))
-	})
-	t.Run("filter by externalID", func(t *testing.T) {
-		toc := prepareToc()
-		toc.Filter(&SearchParams{ExternalID: []string{"externalID"}, Author: []string{"aut"}})
-		assert.Len(t, toc.Data, 0)
-
-		toc = prepareToc()
-		toc.Filter(&SearchParams{ExternalID: []string{"externalID"}})
-		assert.Len(t, toc.Data, 1)
-		assert.NotNil(t, toc.findByName("man/mpn"))
-
-		toc = prepareToc()
-		toc.Filter(&SearchParams{ExternalID: []string{"externalID", "externalID2"}})
-		assert.Len(t, toc.Data, 2)
-		assert.NotNil(t, toc.findByName("aut/man/mpn"))
 		assert.NotNil(t, toc.findByName("man/mpn"))
 	})
 }

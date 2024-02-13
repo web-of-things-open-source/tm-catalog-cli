@@ -20,13 +20,13 @@ func Test_NewDefaultRemote(t *testing.T) {
 
 	t.Run("with set remote manager", func(t *testing.T) {
 		rm := remotes.NewMockRemoteManager(t)
-		res, err := NewDefaultHandlerService(rm, remote)
+		res, err := NewDefaultHandlerService(rm, remote, remote)
 		assert.NotNil(t, res)
 		assert.NoError(t, err)
 	})
 
 	t.Run("with unset remote manager", func(t *testing.T) {
-		res, err := NewDefaultHandlerService(nil, remote)
+		res, err := NewDefaultHandlerService(nil, remote, remote)
 		assert.Nil(t, res)
 		assert.Error(t, err)
 	})
@@ -37,7 +37,7 @@ func Test_CheckHealthLive(t *testing.T) {
 	t.Run("with set RemoteManager", func(t *testing.T) {
 		// given: a service under test where a RemoteManager is set
 		rm := remotes.NewMockRemoteManager(t)
-		underTest, _ := NewDefaultHandlerService(rm, remote)
+		underTest, _ := NewDefaultHandlerService(rm, remotes.EmptySpec, remote)
 		// when: check health live
 		err := underTest.CheckHealthLive(nil)
 		// then: there is no error
@@ -49,7 +49,7 @@ func Test_CheckHealthReady(t *testing.T) {
 
 	rm := remotes.NewMockRemoteManager(t)
 	r := remotes.NewMockRemote(t)
-	underTest, _ := NewDefaultHandlerService(rm, remote)
+	underTest, _ := NewDefaultHandlerService(rm, remotes.EmptySpec, remote)
 
 	t.Run("with valid remote", func(t *testing.T) {
 		// given: the remote can be found by the remote manager
@@ -74,7 +74,7 @@ func Test_CheckHealthStartup(t *testing.T) {
 
 	rm := remotes.NewMockRemoteManager(t)
 	r := remotes.NewMockRemote(t)
-	underTest, _ := NewDefaultHandlerService(rm, remote)
+	underTest, _ := NewDefaultHandlerService(rm, remote, remote)
 
 	t.Run("with valid remote", func(t *testing.T) {
 		// given: the remote can be found by the remote manager
@@ -99,7 +99,7 @@ func Test_CheckHealth(t *testing.T) {
 
 	rm := remotes.NewMockRemoteManager(t)
 	r := remotes.NewMockRemote(t)
-	underTest, _ := NewDefaultHandlerService(rm, remote)
+	underTest, _ := NewDefaultHandlerService(rm, remote, remote)
 
 	t.Run("with valid remote", func(t *testing.T) {
 		// given: the remote can be found by the remote manager
@@ -123,7 +123,7 @@ func Test_CheckHealth(t *testing.T) {
 func Test_ListInventory(t *testing.T) {
 
 	rm := remotes.NewMockRemoteManager(t)
-	underTest, _ := NewDefaultHandlerService(rm, remote)
+	underTest, _ := NewDefaultHandlerService(rm, remotes.EmptySpec, remote)
 
 	listResult := model.SearchResult{
 		Entries: []model.FoundEntry{
@@ -182,10 +182,10 @@ func Test_ListInventory(t *testing.T) {
 	t.Run("list all", func(t *testing.T) {
 		// given: remote having some inventory entries
 		r := remotes.NewMockRemote(t)
-		r.On("List", &model.SearchParams{}).Return(listResult, nil).Once()
+		r.On("List", &model.SearchParams{Author: []string{"a-corp", "b-corp"}}).Return(listResult, nil).Once()
 		rm.On("All").Return([]remotes.Remote{r}, nil).Once()
 		// when: list all
-		res, err := underTest.ListInventory(nil, &model.SearchParams{})
+		res, err := underTest.ListInventory(nil, &model.SearchParams{Author: []string{"a-corp", "b-corp"}})
 		// then: there is no error
 		assert.NoError(t, err)
 		// and then: the search result is returned
@@ -198,7 +198,7 @@ func Test_FindInventoryEntry(t *testing.T) {
 	rm := remotes.NewMockRemoteManager(t)
 
 	t.Run("inventory entry cannot be found", func(t *testing.T) {
-		underTest, _ := NewDefaultHandlerService(rm, remote)
+		underTest, _ := NewDefaultHandlerService(rm, remotes.EmptySpec, remote)
 		inventoryName := "a/b/c"
 		// given: remote returns empty search result
 		r := remotes.NewMockRemote(t)
@@ -218,7 +218,7 @@ func Test_FindInventoryEntry(t *testing.T) {
 func Test_ListAuthors(t *testing.T) {
 
 	rm := remotes.NewMockRemoteManager(t)
-	underTest, _ := NewDefaultHandlerService(rm, remote)
+	underTest, _ := NewDefaultHandlerService(rm, remotes.EmptySpec, remote)
 
 	// given: some inventory entries with unordered and duplicated authors
 	listResult := model.SearchResult{
@@ -261,7 +261,7 @@ func Test_ListAuthors(t *testing.T) {
 func Test_ListManufacturers(t *testing.T) {
 
 	rm := remotes.NewMockRemoteManager(t)
-	underTest, _ := NewDefaultHandlerService(rm, remote)
+	underTest, _ := NewDefaultHandlerService(rm, remotes.EmptySpec, remote)
 
 	// given: some inventory entries with unordered and duplicated manufacturers
 	listResult := model.SearchResult{
@@ -304,7 +304,7 @@ func Test_ListManufacturers(t *testing.T) {
 func Test_ListMpns(t *testing.T) {
 
 	rm := remotes.NewMockRemoteManager(t)
-	underTest, _ := NewDefaultHandlerService(rm, remote)
+	underTest, _ := NewDefaultHandlerService(rm, remotes.EmptySpec, remote)
 
 	// given: some inventory entries with unordered and duplicated mpns
 	listResult := model.SearchResult{
@@ -348,7 +348,7 @@ func Test_FetchingThingModel(t *testing.T) {
 
 	rm := remotes.NewMockRemoteManager(t)
 	r := remotes.NewMockRemote(t)
-	underTest, _ := NewDefaultHandlerService(rm, remote)
+	underTest, _ := NewDefaultHandlerService(rm, remotes.EmptySpec, remote)
 
 	t.Run("with invalid tmID", func(t *testing.T) {
 		invalidTmID := ""
@@ -356,29 +356,53 @@ func Test_FetchingThingModel(t *testing.T) {
 		res, err := underTest.FetchThingModel(nil, invalidTmID)
 		// then: it returns nil result
 		assert.Nil(t, res)
-		// and then: error is status code 400
-		assert.Error(t, err)
-		sErr, ok := err.(*BaseHttpError)
-		assert.True(t, ok)
-		assert.Equal(t, http.StatusBadRequest, sErr.Status)
+		// and then: error is ErrInvalidFetchName
+		assert.ErrorIs(t, err, commands.ErrInvalidFetchName)
 	})
 
-	t.Run("with tmID not found ", func(t *testing.T) {
+	t.Run("with invalid fetch name", func(t *testing.T) {
+		// when: fetching ThingModel
+		res, err := underTest.FetchThingModel(nil, "b-corp\\eagle/PM20")
+		// then: it returns nil result
+		assert.Nil(t, res)
+		// and then: error is ErrInvalidFetchName
+		assert.ErrorIs(t, err, commands.ErrInvalidFetchName)
+	})
+
+	t.Run("with invalid semantic version", func(t *testing.T) {
+		// when: fetching ThingModel
+		res, err := underTest.FetchThingModel(nil, "b-corp/eagle/PM20:v1.")
+		// then: it returns nil result
+		assert.Nil(t, res)
+		// and then: error is ErrInvalidFetchName
+		assert.ErrorIs(t, err, commands.ErrInvalidFetchName)
+	})
+
+	t.Run("with tmID not found", func(t *testing.T) {
 		tmID := "b-corp/eagle/PM20/v1.0.0-20240107123001-234d1b462fff.tm.json"
-		r.On("Fetch", tmID).Return(tmID, nil, commands.ErrTmNotFound).Once()
+		r.On("Fetch", tmID).Return(tmID, nil, remotes.ErrTmNotFound).Once()
 		rm.On("All").Return([]remotes.Remote{r}, nil).Once()
 		// when: fetching ThingModel
 		res, err := underTest.FetchThingModel(nil, tmID)
 		// then: it returns nil result
 		assert.Nil(t, res)
-		// and then: error is status code 404
-		assert.Error(t, err)
-		sErr, ok := err.(*BaseHttpError)
-		assert.True(t, ok)
-		assert.Equal(t, http.StatusNotFound, sErr.Status)
+		// and then: error is ErrTmNotFound
+		assert.ErrorIs(t, err, remotes.ErrTmNotFound)
 	})
 
-	t.Run("with tmID found ", func(t *testing.T) {
+	t.Run("with fetch name not found", func(t *testing.T) {
+		fn := "b-corp/eagle/PM20"
+		r.On("Versions", fn).Return(nil, nil).Once()
+		rm.On("All").Return([]remotes.Remote{r}, nil).Once()
+		// when: fetching ThingModel
+		res, err := underTest.FetchThingModel(nil, fn)
+		// then: it returns nil result
+		assert.Nil(t, res)
+		// and then: error is ErrTmNotFound
+		assert.ErrorIs(t, err, remotes.ErrTmNotFound)
+	})
+
+	t.Run("with tmID found", func(t *testing.T) {
 		_, raw, err := utils.ReadRequiredFile("../../../test/data/push/omnilamp.json")
 		tmID := "b-corp/eagle/PM20/v1.0.0-20240107123001-234d1b462fff.tm.json"
 		r.On("Fetch", tmID).Return(tmID, raw, nil).Once()
@@ -396,12 +420,13 @@ func Test_FetchingThingModel(t *testing.T) {
 func Test_PushingThingModel(t *testing.T) {
 	rm := remotes.NewMockRemoteManager(t)
 	r := remotes.NewMockRemote(t)
-	underTest, _ := NewDefaultHandlerService(rm, remote)
+	pushTarget := remotes.NewRemoteSpec("pushRemote")
+	underTest, _ := NewDefaultHandlerService(rm, remote, pushTarget)
 
 	t.Run("with validation error", func(t *testing.T) {
 		// given: some invalid content for a ThingModel
 		invalidContent := []byte("invalid content")
-		rm.On("Get", remote).Return(r, nil).Once()
+		rm.On("Get", pushTarget).Return(r, nil).Once()
 		// when: pushing ThingModel
 		res, err := underTest.PushThingModel(nil, invalidContent)
 		// then: it returns empty tmID
@@ -412,7 +437,7 @@ func Test_PushingThingModel(t *testing.T) {
 
 	t.Run("with push remote name that cannot be found", func(t *testing.T) {
 		// given: some invalid content for a ThingModel
-		rm.On("Get", remote).Return(nil, remotes.ErrRemoteNotFound).Once()
+		rm.On("Get", pushTarget).Return(nil, remotes.ErrRemoteNotFound).Once()
 		// when: pushing ThingModel
 		res, err := underTest.PushThingModel(nil, []byte("some TM content"))
 		// then: it returns empty tmID

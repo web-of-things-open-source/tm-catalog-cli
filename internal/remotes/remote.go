@@ -23,6 +23,7 @@ const (
 
 	RemoteTypeFile = "file"
 	RemoteTypeHttp = "http"
+	RemoteTypeTmc  = "tmc"
 )
 
 var ValidRemoteNameRegex = regexp.MustCompile("^[a-zA-Z0-9][\\w\\-_:]*$")
@@ -30,13 +31,13 @@ var ValidRemoteNameRegex = regexp.MustCompile("^[a-zA-Z0-9][\\w\\-_:]*$")
 type Config map[string]map[string]any
 
 var ErrAmbiguous = errors.New("multiple remotes configured, but remote target not specified")
-var ErrRemoteNotFound = errors.New("named remote not found")
+var ErrRemoteNotFound = errors.New("remote not found")
 var ErrInvalidRemoteName = errors.New("invalid remote remoteName")
 var ErrRemoteExists = errors.New("named remote already exists")
-var ErrEntryNotFound = errors.New("entry not found")
+var ErrTmNotFound = errors.New("TM not found")
 var ErrInvalidSpec = errors.New("illegal remote spec: both dir and remoteName given")
 
-var SupportedTypes = []string{RemoteTypeFile, RemoteTypeHttp}
+var SupportedTypes = []string{RemoteTypeFile, RemoteTypeHttp, RemoteTypeTmc}
 
 //go:generate mockery --name Remote --inpackage
 type Remote interface {
@@ -46,9 +47,13 @@ type Remote interface {
 	// Fetch retrieves the Thing Model file from remote
 	// Returns the actual id of the retrieved Thing Model (it may differ in the timestamp from the id requested), the file contents, and an error
 	Fetch(id string) (string, []byte, error)
-	UpdateToc(updatedFiles ...string) error
+	// UpdateToc updates table of contents file with data from given TM files. Performs a full update if no updatedIds given
+	UpdateToc(updatedIds ...string) error
+	// List searches the catalog for TMs matching search parameters
 	List(search *model.SearchParams) (model.SearchResult, error)
-	Versions(name string) (model.FoundEntry, error)
+	// Versions lists versions of a TM with given name
+	Versions(name string) ([]model.FoundVersion, error)
+	// Spec returns the spec this Remote has been created from
 	Spec() RepoSpec
 }
 
@@ -132,15 +137,18 @@ func (r *remoteManager) Get(spec RepoSpec) (Remote, error) {
 	if err != nil {
 		return nil, err
 	}
-	name := spec.remoteName
-	rc, ok := remotes[name]
-	if name == "" {
-		if len(remotes) == 1 {
+	remotes = filterEnabled(remotes)
+	rc, ok := remotes[spec.remoteName]
+	if spec.remoteName == "" {
+		switch len(remotes) {
+		case 0:
+			return nil, ErrRemoteNotFound
+		case 1:
 			for n, v := range remotes {
 				rc = v
-				name = n
+				spec.remoteName = n
 			}
-		} else {
+		default:
 			return nil, ErrAmbiguous
 		}
 	} else {
@@ -148,12 +156,19 @@ func (r *remoteManager) Get(spec RepoSpec) (Remote, error) {
 			return nil, ErrRemoteNotFound
 		}
 	}
-
-	enabled := utils.JsGetBool(rc, KeyRemoteEnabled)
-	if enabled != nil && !*enabled {
-		return nil, ErrRemoteNotFound
-	}
 	return createRemote(rc, spec)
+}
+
+func filterEnabled(remotes Config) Config {
+	res := make(Config)
+	for n, rc := range remotes {
+		enabled := utils.JsGetBool(rc, KeyRemoteEnabled)
+		if enabled != nil && !*enabled {
+			continue
+		}
+		res[n] = rc
+	}
+	return res
 }
 
 func createRemote(rc map[string]any, spec RepoSpec) (Remote, error) {
@@ -162,6 +177,8 @@ func createRemote(rc map[string]any, spec RepoSpec) (Remote, error) {
 		return NewFileRemote(rc, spec)
 	case RemoteTypeHttp:
 		return NewHttpRemote(rc, spec)
+	case RemoteTypeTmc:
+		return NewTmcRemote(rc, spec)
 	default:
 		return nil, fmt.Errorf("unsupported remote type: %v. Supported types are %v", t, SupportedTypes)
 	}
@@ -267,6 +284,11 @@ func (r *remoteManager) setRemoteConfig(name string, typ string, confStr string,
 		}
 	case RemoteTypeHttp:
 		rc, err = createHttpRemoteConfig(confStr, confFile)
+		if err != nil {
+			return err
+		}
+	case RemoteTypeTmc:
+		rc, err = createTmcRemoteConfig(confStr, confFile)
 		if err != nil {
 			return err
 		}

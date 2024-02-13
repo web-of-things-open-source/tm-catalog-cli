@@ -1,6 +1,7 @@
 package model
 
 import (
+	"fmt"
 	"slices"
 	"strings"
 	"time"
@@ -43,6 +44,9 @@ func (e *TOCEntry) MatchesSearchText(searchQuery string) bool {
 		if strings.Contains(utils.ToTrimmedLower(version.Description), searchQuery) {
 			return true
 		}
+		if strings.Contains(utils.ToTrimmedLower(version.ExternalID), searchQuery) {
+			return true
+		}
 	}
 	return false
 
@@ -69,7 +73,7 @@ func (toc *TOC) Filter(search *SearchParams) {
 			return true
 		}
 
-		if len(search.Name) > 0 && !matchesFilter([]string{search.Name}, tocEntry.Name) {
+		if !matchesNameFilter(search.Name, tocEntry.Name, search.Options) {
 			return true
 		}
 
@@ -85,21 +89,29 @@ func (toc *TOC) Filter(search *SearchParams) {
 			return true
 		}
 
-		if len(search.ExternalID) > 0 {
-			hasExternalID := false
-			for _, v := range tocEntry.Versions {
-				if slices.Contains(search.ExternalID, v.ExternalID) {
-					hasExternalID = true
-					break
-				}
-			}
-			if !hasExternalID {
-				return true
-			}
-		}
 		return false
 	})
 
+}
+
+func matchesNameFilter(acceptedValue string, value string, options SearchOptions) bool {
+	if len(acceptedValue) == 0 {
+		return true
+	}
+
+	switch options.NameFilterType {
+	case FullMatch:
+		return value == acceptedValue
+	case PrefixMatch:
+		actualPathParts := strings.Split(value, "/")
+		acceptedPathParts := strings.Split(acceptedValue, "/")
+		if len(acceptedPathParts) > len(actualPathParts) {
+			return false
+		}
+		return slices.Equal(actualPathParts[0:len(acceptedPathParts)], acceptedPathParts)
+	default:
+		panic(fmt.Sprintf("unsupported NameFilterType: %d", options.NameFilterType))
+	}
 }
 
 func matchesFilter(acceptedValues []string, value string) bool {

@@ -28,15 +28,17 @@ type HandlerService interface {
 
 type defaultHandlerService struct {
 	remoteManager remotes.RemoteManager
+	serveRemote   remotes.RepoSpec
 	pushRemote    remotes.RepoSpec
 }
 
-func NewDefaultHandlerService(rm remotes.RemoteManager, pushRemote remotes.RepoSpec) (*defaultHandlerService, error) {
+func NewDefaultHandlerService(rm remotes.RemoteManager, servedRepo remotes.RepoSpec, pushRemote remotes.RepoSpec) (*defaultHandlerService, error) {
 	if rm == nil {
 		return nil, errors.New("remote manager is unset")
 	}
 	dhs := &defaultHandlerService{
 		remoteManager: rm,
+		serveRemote:   servedRepo,
 		pushRemote:    pushRemote,
 	}
 	return dhs, nil
@@ -44,7 +46,7 @@ func NewDefaultHandlerService(rm remotes.RemoteManager, pushRemote remotes.RepoS
 
 func (dhs *defaultHandlerService) ListInventory(ctx context.Context, search *model.SearchParams) (*model.SearchResult, error) {
 	c := commands.NewListCommand(dhs.remoteManager)
-	toc, err := c.List(remotes.EmptySpec, search)
+	toc, err := c.List(dhs.serveRemote, search)
 	if err != nil {
 		return nil, err
 	}
@@ -111,29 +113,25 @@ func (dhs *defaultHandlerService) ListMpns(ctx context.Context, search *model.Se
 
 func (dhs *defaultHandlerService) FindInventoryEntry(ctx context.Context, name string) (*model.FoundEntry, error) {
 	//todo: check if name is valid format
-	toc, err := dhs.ListInventory(ctx, &model.SearchParams{Name: name})
+	toc, err := dhs.ListInventory(ctx, &model.SearchParams{Name: name, Options: model.SearchOptions{NameFilterType: model.FullMatch}})
 	if err != nil {
 		return nil, err
 	}
 	if len(toc.Entries) != 1 {
-		return nil, NewNotFoundError(nil, "Inventory with name %s not found", name)
+		return nil, NewNotFoundError(nil, "Inventory item with name %s not found", name)
 	}
 	return &toc.Entries[0], nil
 }
 
 func (dhs *defaultHandlerService) FetchThingModel(ctx context.Context, tmID string) ([]byte, error) {
-	_, err := model.ParseTMID(tmID, true)
-	if errors.Is(err, model.ErrInvalidId) {
-		return nil, NewBadRequestError(err, "Invalid parameter: %s", tmID)
-	} else if err != nil {
+	_, _, err := commands.ParseAsTMIDOrFetchName(tmID)
+	if err != nil {
 		return nil, err
 	}
 
 	rm := dhs.remoteManager
-	_, data, err := commands.NewFetchCommand(rm).FetchByTMID(remotes.EmptySpec, tmID)
-	if errors.Is(err, commands.ErrTmNotFound) {
-		return nil, NewNotFoundError(err, "File does not exist")
-	} else if err != nil {
+	_, data, err := commands.NewFetchCommand(rm).FetchByTMIDOrName(dhs.serveRemote, tmID)
+	if err != nil {
 		return nil, err
 	}
 	return data, nil
