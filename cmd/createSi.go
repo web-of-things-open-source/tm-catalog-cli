@@ -46,8 +46,11 @@ var createSiCmd = &cobra.Command{
 		index, err := bleve.Open("../catalog.bleve")
 		if err != nil {
 			// open a new index
-			mapping := bleve.NewIndexMapping()
-			index, err = bleve.New("../catalog.bleve", mapping)
+			indexMapping := bleve.NewIndexMapping()
+			tdMapping := bleve.NewDocumentMapping()
+			indexMapping.AddDocumentMapping("td", tdMapping)
+
+			index, err = bleve.New("../catalog.bleve", indexMapping)
 			if err != nil {
 				fmt.Println(err)
 				return
@@ -86,25 +89,22 @@ var createSiCmd = &cobra.Command{
 				//fmt.Println(string(thing))
 				var data any
 				json.Unmarshal(thing, &data)
-
-				vf := func(data interface{}, path string) (interface{}, error) {
-					fmt.Printf("%s: %v(%T)\n", path, data, data)
-					//analyzer := index.Index()
+				vf := func(parent any, data any, path string) (interface{}, error) {
+					// how to map https://blevesearch.com/docs/Index-Mapping/
 					return data, nil
 				}
+				RangeJSON(nil, data, "", vf)
 
-				RangeJSON(data, "", vf)
 				index.Index(fqName, data)
-
 			}
 
 		}
 	},
 }
 
-type visitField func(data interface{}, path string) (interface{}, error)
+type visitField func(parent any, data any, path string) (interface{}, error)
 
-func RangeJSON(data interface{}, path string, vf visitField) (interface{}, error) {
+func RangeJSON(parent any, data any, path string, vf visitField) (any, error) {
 	if data == nil || strings.HasSuffix(path, ".forms") {
 		return nil, nil
 	}
@@ -117,9 +117,9 @@ func RangeJSON(data interface{}, path string, vf visitField) (interface{}, error
 			var err2 error
 			var val2 any
 			if path == "" {
-				val2, err2 = RangeJSON(val, key, vf)
+				val2, err2 = RangeJSON(aMap, val, key, vf)
 			} else {
-				val2, err2 = RangeJSON(val, path+"."+key, vf)
+				val2, err2 = RangeJSON(aMap, val, path+"."+key, vf)
 			}
 			err = ErrorCoalesce(err, err2)
 			if val2 == nil {
@@ -131,11 +131,11 @@ func RangeJSON(data interface{}, path string, vf visitField) (interface{}, error
 		return aMap, err
 	}
 	// if data is a array, walk deeper in the each element of the array
-	if aArr, isArr := data.([]interface{}); isArr {
+	if aArr, isArr := data.([]any); isArr {
 
 		j := 0
 		for i := range aArr {
-			val2, err2 := RangeJSON(aArr[i], path+".["+strconv.Itoa(i)+"]", vf)
+			val2, err2 := RangeJSON(nil, aArr[i], path+".["+strconv.Itoa(i)+"]", vf)
 			err = ErrorCoalesce(err, err2)
 			if val2 != nil {
 				aArr[j] = val2
@@ -145,7 +145,7 @@ func RangeJSON(data interface{}, path string, vf visitField) (interface{}, error
 		return aArr[:j], err
 	}
 	// its a literal, so call the visitField function
-	vf(data, path)
+	vf(parent, data, path)
 	return data, nil
 }
 

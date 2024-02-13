@@ -109,7 +109,10 @@ func buildQuery(qtype string, args []string) query.Query {
 		}
 		q = pquery
 	case "phrase":
-		pquery := bleve.NewPhraseQuery(args, "properties.factory-seqno-lword.title")
+		if qfield == "" {
+			qfield = "_all"
+		}
+		pquery := bleve.NewPhraseQuery(args, qfield)
 		q = pquery
 	default:
 		// build a search with the provided parameters
