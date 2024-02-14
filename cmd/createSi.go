@@ -9,7 +9,6 @@ import (
 	"log/slog"
 	"os"
 	"strconv"
-	"strings"
 
 	"github.com/blevesearch/bleve/v2"
 	"github.com/spf13/cobra"
@@ -105,9 +104,9 @@ var createSiCmd = &cobra.Command{
 type visitField func(parent any, data any, path string) (interface{}, error)
 
 func RangeJSON(parent any, data any, path string, vf visitField) (any, error) {
-	if data == nil || strings.HasSuffix(path, ".forms") {
-		return nil, nil
-	}
+	// if data == nil || strings.HasSuffix(path, ".forms") {
+	// 	return nil, nil
+	// }
 	var err error
 	//hideField := strings.HasSuffix(path, ".properties")
 	// if data is a map, walk deeper in the fields of the map

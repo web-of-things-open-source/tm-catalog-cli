@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/blevesearch/bleve/v2"
 	"github.com/web-of-things-open-source/tm-catalog-cli/internal/utils"
 )
 
@@ -69,9 +70,9 @@ func (toc *TOC) Filter(search *SearchParams) {
 		return
 	}
 	toc.Data = slices.DeleteFunc(toc.Data, func(tocEntry *TOCEntry) bool {
-		if !tocEntry.MatchesSearchText(search.Query) {
-			return true
-		}
+		// if !tocEntry.MatchesSearchText(search.Query) {
+		// 	return true
+		// }
 
 		if !matchesNameFilter(search.Name, tocEntry.Name, search.Options) {
 			return true
@@ -91,7 +92,29 @@ func (toc *TOC) Filter(search *SearchParams) {
 
 		return false
 	})
+	if len(search.Query) > 0 {
+		idx, errOpen := bleve.Open("../catalog.bleve")
+		if errOpen != nil {
+			//return fmt.Errorf("error opening bleve index: %v", errOpen)
+		} else {
+			defer idx.Close()
+			query := bleve.NewQueryStringQuery(search.Query)
+			req := bleve.NewSearchRequestOptions(query, 100000, 0, false)
+			sr, err := idx.Search(req)
+			_ = sr
+			if err == nil {
+				acceptedValues := make([]string, 0, sr.Size())
+				for _, hit := range sr.Hits {
+					parts := strings.Split(hit.ID, ":")
+					acceptedValues = append(acceptedValues, parts[0])
 
+				}
+				toc.Data = slices.DeleteFunc(toc.Data, func(tocEntry *TOCEntry) bool {
+					return !matchesFilter(acceptedValues, tocEntry.Name)
+				})
+			}
+		}
+	}
 }
 
 func matchesNameFilter(acceptedValue string, value string, options SearchOptions) bool {
