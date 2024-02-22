@@ -16,6 +16,17 @@ import (
 	"github.com/web-of-things-open-source/tm-catalog-cli/internal/remotes"
 )
 
+func closeIndex(index bleve.Index) {
+	var log = slog.Default()
+	//log.Debug("pre  Close index")
+	closeError := index.Close()
+	log.Debug("post Close index", "error", closeError)
+	// time.Sleep(10 * time.Second)
+	// log.Debug("post Close index after sleep")
+}
+
+var catalogPath = "../catalog.bleve"
+
 // createSiCmd represents the createSi command
 var createSiCmd = &cobra.Command{
 	Use:   "createSi",
@@ -35,30 +46,29 @@ var createSiCmd = &cobra.Command{
 		}
 		listCmd := commands.NewListCommand(rm)
 		searchResult, err := listCmd.List(repoSpec, nil)
-		_ = searchResult
 		//toc, err := spec.List(nil)
 		if err != nil {
 			log.Error(err.Error())
 			os.Exit(1)
 		}
 
-		index, err := bleve.Open("../catalog.bleve")
+		index, err := bleve.Open(catalogPath)
+
 		if err != nil {
 			// open a new index
 			indexMapping := bleve.NewIndexMapping()
-			tdMapping := bleve.NewDocumentMapping()
-			indexMapping.AddDocumentMapping("td", tdMapping)
-
-			index, err = bleve.New("../catalog.bleve", indexMapping)
+			index, err = bleve.NewUsing(catalogPath, indexMapping, bleve.Config.DefaultIndexType, bleve.Config.DefaultKVStore, nil)
 			if err != nil {
 				fmt.Println(err)
 				return
 			}
 		}
+		defer closeIndex(index)
+		count := 0
 		contents := searchResult.Entries
 		for _, value := range contents {
-			fmt.Printf("%s\t%s\n", value.Name, value.Mpn)
-			fmt.Println(string(value.Name))
+			//			fmt.Printf("%s\t%s\n", value.Name, value.Mpn)
+
 			// fn, err := commands.ParseFetchName(value.Name)
 			// if err != nil {
 			// 	log.Error(err.Error())
@@ -67,36 +77,72 @@ var createSiCmd = &cobra.Command{
 
 			for _, version := range value.Versions {
 				//fn := &commands.FetchName{}
-				fqName := value.Name + ":" + version.Version.Model
-				fn, err := commands.ParseFetchName(fqName)
+				//fqName := value.Name + ":" + version.Version.Model
+				fqName := version.TMID
+				//blID := fqName + "_" + version.Digest
+				//blID = strings.ReplaceAll(blID, ":", "_")
+				blID := fqName
+				//fn, err := commands.ParseFetchName(fqName)
 				if err != nil {
 					log.Error(err.Error())
 					return //"", err
 				}
-				id, thing, err := commands.NewFetchCommand(rm).FetchByName(repoSpec, fn)
-				//thing, err := commands.(fn, remote)
+				id, thing, err := commands.NewFetchCommand(rm).FetchByTMID(repoSpec, fqName)
+				_ = id
 				if err != nil {
 					fmt.Println(err.Error())
 					os.Exit(1)
 				}
-				deleteErr := index.Delete(id)
-				if deleteErr != nil {
-					fmt.Printf("\ndeleted exisiting document with id=%s first\n", id)
+				//time.Sleep(500 * time.Millisecond)
+				//	filename := "../remote/" + blID + ".json"
+				// err = os.MkdirAll(filepath.Dir(filename), os.ModePerm)
+				// if err != nil {
+				// 	fmt.Println(err.Error())
+				// 	os.Exit(1)
+				// }
+				// err = os.WriteFile(filename, thing, 0644)
+				// if err != nil {
+				// 	fmt.Println(err.Error())
+				// 	os.Exit(1)
+				// }
+
+				// ask if Document is already indexed
+				doc, _ := index.Document(blID)
+
+				if doc != nil {
+					deleteErr := index.Delete(blID)
+					fmt.Printf("deleted exisiting document with id=%s first%v\n", blID, deleteErr)
 				} else {
-					fmt.Printf("\nnew document with id=%s\n", id)
+					fmt.Printf("new document with id=%s\n", blID)
 				}
 				//fmt.Println(string(thing))
 				var data any
-				json.Unmarshal(thing, &data)
-				vf := func(parent any, data any, path string) (interface{}, error) {
-					// how to map https://blevesearch.com/docs/Index-Mapping/
-					return data, nil
+				unmErr := json.Unmarshal(thing, &data)
+				if unmErr != nil {
+					fmt.Println(unmErr.Error())
+					os.Exit(1)
 				}
-				RangeJSON(nil, data, "", vf)
+				// vf := func(parent any, data any, path string) (interface{}, error) {
+				// 	// how to map https://blevesearch.com/docs/Index-Mapping/
+				// 	//if path == "schema:manufacturer.schema:name" {
+				// 	//fmt.Printf("path:'%s' value:'%v'\n", path, data)
+				// 	//}
+				// 	return data, nil
+				// }
+				//RangeJSON(nil, data, "", vf)
 
-				index.Index(fqName, data)
+				idxErr := index.Index(blID, data)
+
+				//time.Sleep(100 * time.Millisecond)
+				if idxErr != nil {
+					fmt.Println(idxErr.Error())
+					return
+				}
+				count++
+				if count > 50000 {
+					return
+				}
 			}
-
 		}
 	},
 }

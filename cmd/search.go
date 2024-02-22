@@ -62,6 +62,7 @@ func executeSearch(cmd *cobra.Command, args []string) error {
 	}
 	defer idx.Close()
 	query := buildQuery(qtype, args)
+
 	for i := 0; i < repeat; i++ {
 		req := bleve.NewSearchRequestOptions(query, limit, skip, explain)
 		if highlight {
@@ -117,6 +118,7 @@ func buildQuery(qtype string, args []string) query.Query {
 	default:
 		// build a search with the provided parameters
 		queryString := strings.Join(args, " ")
+		fmt.Printf("search query:'%s'\n", queryString)
 		q = bleve.NewQueryStringQuery(queryString)
 	}
 	return q

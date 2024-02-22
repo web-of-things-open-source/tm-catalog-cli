@@ -109,9 +109,11 @@ func (toc *TOC) Filter(search *SearchParams) {
 					acceptedValues = append(acceptedValues, parts[0])
 
 				}
+				fmt.Printf("list from filter %d - list from bleve %d\n", len(toc.Data), len(acceptedValues))
 				toc.Data = slices.DeleteFunc(toc.Data, func(tocEntry *TOCEntry) bool {
 					return !matchesFilter(acceptedValues, tocEntry.Name)
 				})
+				fmt.Printf("list after and %d\n", len(toc.Data))
 			}
 		}
 	}
