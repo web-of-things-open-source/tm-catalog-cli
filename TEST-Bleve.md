@@ -1,4 +1,4 @@
-go run main.go search -n 1000 "+schema\:manufacturer.schema\:name:siemens +temperature"
+go run main.go search -n 1000 "+schema\:manufacturer.schema\:name:*"
 
 bleve search ../catalog.bleve "+schema\:manufacturer.schema\:name:*" -l 10000
 
