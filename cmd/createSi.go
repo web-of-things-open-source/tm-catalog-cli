@@ -98,17 +98,6 @@ var createSiCmd = &cobra.Command{
 					continue
 				}
 				saveSnapshot(thing, blID, "afterfetch-"+remoteName)
-				filename := "../remote-24/" + blID
-				err = os.MkdirAll(filepath.Dir(filename), os.ModePerm)
-				if err != nil {
-					fmt.Println(err.Error())
-					os.Exit(1)
-				}
-				err = os.WriteFile(filename, thing, 0644)
-				if err != nil {
-					fmt.Println(err.Error())
-					os.Exit(1)
-				}
 
 				// ask if Document is already indexed
 				doc, _ := index.Document(blID)
@@ -119,7 +108,7 @@ var createSiCmd = &cobra.Command{
 				} else {
 					fmt.Printf("new document with id=%s\n", blID)
 				}
-				//fmt.Println(string(thing))
+
 				var data any
 				unmErr := json.Unmarshal(thing, &data)
 				if unmErr != nil {
@@ -127,18 +116,9 @@ var createSiCmd = &cobra.Command{
 					os.Exit(1)
 				}
 				saveSnapshot(thing, blID, "afterunmarshal-"+remoteName)
-				// vf := func(parent any, data any, path string) (interface{}, error) {
-				// 	// how to map https://blevesearch.com/docs/Index-Mapping/
-				// 	//if path == "schema:manufacturer.schema:name" {
-				// 	//fmt.Printf("path:'%s' value:'%v'\n", path, data)
-				// 	//}
-				// 	return data, nil
-				// }
-				//RangeJSON(nil, data, "", vf)
 
 				idxErr := index.Index(blID, data)
 
-				//time.Sleep(100 * time.Millisecond)
 				if idxErr != nil {
 					fmt.Println(idxErr.Error())
 					return
