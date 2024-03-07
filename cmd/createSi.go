@@ -46,7 +46,7 @@ var createSiCmd = &cobra.Command{
 			os.Exit(1)
 		}
 		listCmd := commands.NewListCommand(rm)
-		searchResult, err := listCmd.List(repoSpec, nil)
+		searchResult, err, _ := listCmd.List(repoSpec, nil)
 		//toc, err := spec.List(nil)
 		if err != nil {
 			log.Error(err.Error())
@@ -88,14 +88,17 @@ var createSiCmd = &cobra.Command{
 					log.Error(err.Error())
 					return //"", err
 				}
-				id, thing, err := commands.NewFetchCommand(rm).FetchByTMID(repoSpec, fqName)
+				id, thing, err, _ := commands.NewFetchCommand(rm).FetchByTMID(repoSpec, fqName, false)
+				// thing_copy := make([]byte, len(thing))
+				// copy(thing_copy[:], thing)
 				_ = id
 				if err != nil {
 					fmt.Println(err.Error())
-					os.Exit(1)
+					//os.Exit(1)
+					continue
 				}
-				//time.Sleep(500 * time.Millisecond)
-				filename := "../remote-22/" + blID + ".json"
+				saveSnapshot(thing, blID, "afterfetch-"+remoteName)
+				filename := "../remote-24/" + blID
 				err = os.MkdirAll(filepath.Dir(filename), os.ModePerm)
 				if err != nil {
 					fmt.Println(err.Error())
@@ -123,6 +126,7 @@ var createSiCmd = &cobra.Command{
 					fmt.Println(unmErr.Error())
 					os.Exit(1)
 				}
+				saveSnapshot(thing, blID, "afterunmarshal-"+remoteName)
 				// vf := func(parent any, data any, path string) (interface{}, error) {
 				// 	// how to map https://blevesearch.com/docs/Index-Mapping/
 				// 	//if path == "schema:manufacturer.schema:name" {
@@ -146,6 +150,20 @@ var createSiCmd = &cobra.Command{
 			}
 		}
 	},
+}
+
+func saveSnapshot(thing []byte, blID string, sName string) {
+	filename := "../snapshot-" + sName + "/" + blID
+	err := os.MkdirAll(filepath.Dir(filename), os.ModePerm)
+	if err != nil {
+		fmt.Println(err.Error())
+		os.Exit(1)
+	}
+	err = os.WriteFile(filename, thing, 0644)
+	if err != nil {
+		fmt.Println(err.Error())
+		os.Exit(1)
+	}
 }
 
 type visitField func(parent any, data any, path string) (interface{}, error)

@@ -1,6 +1,7 @@
 package remotes
 
 import (
+	"bufio"
 	"bytes"
 	"encoding/json"
 	"errors"
@@ -66,14 +67,64 @@ func (t TmcRemote) Push(id model.TMID, raw []byte) error {
 		}
 		switch resp.StatusCode {
 		case http.StatusConflict:
-			err := &ErrTMExists{}
-			err.FromString(detail)
-			return err
+			eCode := ""
+			if e.Code != nil {
+				eCode = *e.Code
+			}
+			cErr, err := ParseErrTMIDConflict(eCode)
+			if err != nil {
+				return err
+			}
+			return cErr
 		case http.StatusInternalServerError, http.StatusBadRequest:
 			return errors.New(detail)
 		default:
 			return errors.New("unexpected status not handled correctly")
 		}
+	default:
+		return errors.New(fmt.Sprintf("received unexpected HTTP response from remote TM catalog: %s", resp.Status))
+	}
+}
+func (t TmcRemote) Delete(id string) error {
+	reqUrl := t.parsedRoot.JoinPath("thing-models", id)
+	vals := url.Values{
+		"force": []string{"true"},
+	}
+	reqUrl.RawQuery = vals.Encode()
+
+	req, err := http.NewRequest(http.MethodDelete, reqUrl.String(), nil)
+	if err != nil {
+		return err
+	}
+	resp, err := doHttp(req, t.auth)
+	if err != nil {
+		return err
+	}
+	b, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return err
+	}
+
+	switch resp.StatusCode {
+	case http.StatusNoContent:
+		return nil
+	case http.StatusBadRequest:
+		// there are two reasons why we could receive a 400 response: invalid 'force' flag or invalid id
+		// we're sure that we've passed a valid 'force' flag, so it must be the id
+		return model.ErrInvalidId
+	case http.StatusNotFound:
+		return ErrTmNotFound
+	case http.StatusInternalServerError:
+		var e server.ErrorResponse
+		err = json.Unmarshal(b, &e)
+		if err != nil {
+			return err
+		}
+		detail := e.Title
+		if e.Detail != nil {
+			detail = *e.Detail
+		}
+		return errors.New(detail)
 	default:
 		return errors.New(fmt.Sprintf("received unexpected HTTP response from remote TM catalog: %s", resp.Status))
 	}
@@ -226,28 +277,37 @@ func (t TmcRemote) Versions(name string) ([]model.FoundVersion, error) {
 
 }
 
-func toFoundVersions(data []server.InventoryEntryVersion, spec RepoSpec) []model.FoundVersion {
-	var res []model.FoundVersion
-	for _, v := range data {
-		fv := model.FoundVersion{
-			TOCVersion: model.TOCVersion{
-				Description: v.Description,
-				Version: model.Version{
-					Model: v.Version.Model,
-				},
-				Links: map[string]string{
-					"content": v.TmID,
-				},
-				TMID:       v.TmID,
-				Digest:     v.Digest,
-				TimeStamp:  v.Timestamp,
-				ExternalID: v.ExternalID,
-			},
-			FoundIn: spec.ToFoundSource(),
-		}
-		res = append(res, fv)
+func (t TmcRemote) ListCompletions(kind, toComplete string) ([]string, error) {
+	u := t.parsedRoot.JoinPath(".completions")
+	vals := u.Query()
+	vals.Set("kind", kind)
+	vals.Set("toComplete", toComplete)
+	u.RawQuery = vals.Encode()
+
+	resp, err := doGet(u.String(), t.auth)
+	if err != nil {
+		return nil, err
 	}
-	return res
+	data, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	switch resp.StatusCode {
+	case http.StatusOK:
+		var lines []string
+		scanner := bufio.NewScanner(bytes.NewBuffer(data))
+		for scanner.Scan() {
+			lines = append(lines, scanner.Text())
+		}
+		return lines, scanner.Err()
+	case http.StatusBadRequest:
+		return nil, ErrInvalidCompletionParams
+	case http.StatusInternalServerError:
+		return nil, errors.New(string(data))
+	default:
+		return nil, errors.New(fmt.Sprintf("received unexpected HTTP response from remote TM catalog: %s", resp.Status))
+	}
 }
 
 func createTmcRemoteConfig(loc string, bytes []byte) (map[string]any, error) {

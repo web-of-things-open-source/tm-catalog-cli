@@ -2,6 +2,7 @@ package model
 
 import (
 	"fmt"
+	"path/filepath"
 	"slices"
 	"strings"
 	"time"
@@ -129,6 +130,7 @@ func matchesNameFilter(acceptedValue string, value string, options SearchOptions
 		return value == acceptedValue
 	case PrefixMatch:
 		actualPathParts := strings.Split(value, "/")
+		acceptedValue = strings.Trim(acceptedValue, "/")
 		acceptedPathParts := strings.Split(acceptedValue, "/")
 		if len(acceptedPathParts) > len(actualPathParts) {
 			return false
@@ -157,11 +159,11 @@ func (toc *TOC) findByName(name string) *TOCEntry {
 }
 
 // Insert uses CatalogThingModel to add a version, either to an existing
-// entry or as a new entry.
-func (toc *TOC) Insert(ctm *ThingModel) error {
+// entry or as a new entry. Returns the TMID of the inserted entry
+func (toc *TOC) Insert(ctm *ThingModel) (TMID, error) {
 	tmid, err := ParseTMID(ctm.ID, ctm.IsOfficial())
 	if err != nil {
-		return err
+		return TMID{}, err
 	}
 	// find the right entry, or create if it doesn't exist
 	tocEntry := toc.findByName(tmid.Name)
@@ -191,5 +193,32 @@ func (toc *TOC) Insert(ctm *ThingModel) error {
 		Links:       map[string]string{"content": tmid.String()},
 	}
 	tocEntry.Versions = append(tocEntry.Versions, tv)
-	return nil
+	return tmid, nil
+}
+
+// Delete deletes the record for the given id. Returns TM name to be removed from names file if no more versions are left
+func (toc *TOC) Delete(id string) (updated bool, deletedName string, err error) {
+	var tocEntry *TOCEntry
+
+	name, found := strings.CutSuffix(id, "/"+filepath.Base(id))
+	if !found {
+		return false, "", ErrInvalidId
+	}
+	tocEntry = toc.findByName(name)
+	if tocEntry != nil {
+		tocEntry.Versions = slices.DeleteFunc(tocEntry.Versions, func(version TOCVersion) bool {
+			fnd := version.TMID == id
+			if fnd {
+				updated = true
+			}
+			return fnd
+		})
+		if len(tocEntry.Versions) == 0 {
+			toc.Data = slices.DeleteFunc(toc.Data, func(entry *TOCEntry) bool {
+				return entry.Name == name
+			})
+			return updated, name, nil
+		}
+	}
+	return updated, "", nil
 }

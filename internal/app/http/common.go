@@ -22,10 +22,13 @@ const (
 	error503Title  = "Service Unavailable"
 	error500Title  = "Internal Server Error"
 	error500Detail = "An unhandled error has occurred. Try again later. If it is a bug we already recorded it. Retrying will most likely not help"
+	error502Title  = "Bad Gateway"
+	error502Detail = "An upstream Thing Model repository returned an error"
 
 	headerContentType         = "Content-Type"
 	headerCacheControl        = "Cache-Control"
 	headerXContentTypeOptions = "X-Content-Type-Options"
+	mimeText                  = "text/plain"
 	mimeJSON                  = "application/json"
 	mimeProblemJSON           = "application/problem+json"
 	noSniff                   = "nosniff"
@@ -72,14 +75,16 @@ func HandleErrorResponse(w http.ResponseWriter, r *http.Request, err error) {
 	errTitle := error500Title
 	errDetail := error500Detail
 	errStatus := http.StatusInternalServerError
+	errCode := ""
 
-	var eErr *remotes.ErrTMExists
+	var eErr *remotes.ErrTMIDConflict
+	var aErr *remotes.RepoAccessError
 	var bErr *BaseHttpError
 	if errors.Is(err, remotes.ErrTmNotFound) {
 		errTitle = error404Title
 		errDetail = err.Error()
 		errStatus = http.StatusNotFound
-	} else if errors.Is(err, model.ErrInvalidId) || errors.Is(err, commands.ErrInvalidFetchName) {
+	} else if errors.Is(err, model.ErrInvalidId) || errors.Is(err, commands.ErrInvalidFetchName) || errors.Is(err, remotes.ErrInvalidCompletionParams) {
 		errTitle = error400Title
 		errDetail = err.Error()
 		errStatus = http.StatusBadRequest
@@ -87,9 +92,14 @@ func HandleErrorResponse(w http.ResponseWriter, r *http.Request, err error) {
 		errTitle = bErr.Title
 		errDetail = bErr.Detail
 		errStatus = bErr.Status
+	} else if errors.As(err, &aErr) {
+		errTitle = error502Title
+		errDetail = error502Detail
+		errStatus = http.StatusBadGateway
 	} else if errors.As(err, &eErr) {
 		errTitle = error409Title
 		errDetail = eErr.Error()
+		errCode = eErr.Code()
 		errStatus = http.StatusConflict
 	} else {
 		switch err.(type) {
@@ -111,6 +121,7 @@ func HandleErrorResponse(w http.ResponseWriter, r *http.Request, err error) {
 		Detail:   &errDetail,
 		Status:   errStatus,
 		Instance: &r.RequestURI,
+		Code:     &errCode,
 	}
 
 	respBody, _ := json.MarshalIndent(problem, "", "  ")
