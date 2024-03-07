@@ -9,7 +9,7 @@ go run main.go search -n 1000 "+schema\:manufacturer.schema\:name:siemens +tempe
 
 bleve search ../catalog.bleve "+schema\:manufacturer.schema\:name:*" -l 10000
 
-./tm-catalog-cli createSi ; du -s ../cata*; bleve count ../catalog.bleve
+.; du -s ../cata*; bleve count ../catalog.bleve
 
 
 go install github.com/blevesearch/bleve/v2/cmd/bleve@latest

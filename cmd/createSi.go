@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"path/filepath"
 	"strconv"
 
 	"github.com/blevesearch/bleve/v2"
@@ -94,17 +95,17 @@ var createSiCmd = &cobra.Command{
 					os.Exit(1)
 				}
 				//time.Sleep(500 * time.Millisecond)
-				//	filename := "../remote/" + blID + ".json"
-				// err = os.MkdirAll(filepath.Dir(filename), os.ModePerm)
-				// if err != nil {
-				// 	fmt.Println(err.Error())
-				// 	os.Exit(1)
-				// }
-				// err = os.WriteFile(filename, thing, 0644)
-				// if err != nil {
-				// 	fmt.Println(err.Error())
-				// 	os.Exit(1)
-				// }
+				filename := "../remote-22/" + blID + ".json"
+				err = os.MkdirAll(filepath.Dir(filename), os.ModePerm)
+				if err != nil {
+					fmt.Println(err.Error())
+					os.Exit(1)
+				}
+				err = os.WriteFile(filename, thing, 0644)
+				if err != nil {
+					fmt.Println(err.Error())
+					os.Exit(1)
+				}
 
 				// ask if Document is already indexed
 				doc, _ := index.Document(blID)

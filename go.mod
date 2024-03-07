@@ -8,6 +8,7 @@ require (
 	github.com/buger/jsonparser v1.1.1
 	github.com/gofrs/flock v0.8.1
 	github.com/google/renameio v1.0.1
+	github.com/gorilla/handlers v1.5.2
 	github.com/gorilla/mux v1.8.1
 	github.com/kennygrant/sanitize v1.2.4
 	github.com/kinbiko/jsonassert v1.1.1
@@ -25,13 +26,13 @@ require (
 	github.com/RoaringBitmap/roaring v1.7.0 // indirect
 	github.com/apapsch/go-jsonmerge/v2 v2.0.0 // indirect
 	github.com/bits-and-blooms/bitset v1.13.0 // indirect
-	github.com/blevesearch/bleve_index_api v1.1.6 // indirect
-	github.com/blevesearch/geo v0.1.20 // indirect
+	github.com/blevesearch/bleve_index_api v1.1.5 // indirect
+	github.com/blevesearch/geo v0.1.19 // indirect
 	github.com/blevesearch/go-porterstemmer v1.0.3 // indirect
 	github.com/blevesearch/goleveldb v1.1.0 // indirect
 	github.com/blevesearch/gtreap v0.1.1 // indirect
 	github.com/blevesearch/mmap-go v1.0.4 // indirect
-	github.com/blevesearch/scorch_segment_api/v2 v2.2.8 // indirect
+	github.com/blevesearch/scorch_segment_api/v2 v2.2.6 // indirect
 	github.com/blevesearch/segment v0.9.1 // indirect
 	github.com/blevesearch/snowballstem v0.9.0 // indirect
 	github.com/blevesearch/stempel v0.2.0 // indirect
@@ -47,8 +48,10 @@ require (
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/felixge/httpsnoop v1.0.3 // indirect
 	github.com/fsnotify/fsnotify v1.7.0 // indirect
+	github.com/golang/geo v0.0.0-20210211234256-740aa86cb551 // indirect
+	github.com/golang/protobuf v1.5.3 // indirect
+	github.com/golang/snappy v0.0.4 // indirect
 	github.com/google/uuid v1.5.0 // indirect
-	github.com/gorilla/handlers v1.5.2 // indirect
 	github.com/hashicorp/hcl v1.0.0 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
